@@ -2,71 +2,27 @@ import { describe, it, expect } from 'vitest';
 import { Jsiphon, META, toStream, collect, parseChunks } from './helpers.js';
 
 describe('Basic JSON Parsing', () => {
-    describe('primitive values', () => {
-        it('parses string value', async () => {
+    // Note: Root-level primitives are not supported.
+    // Parser only accepts { or [ as root. Primitive-only input returns {}.
+    describe('primitive roots (not supported)', () => {
+        it('returns empty object for string root', async () => {
             const results = await parseChunks(['"hello"']);
-            expect(results[0]).toBe('hello');
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0]).toEqual({});
         });
 
-        it('parses empty string', async () => {
-            const results = await parseChunks(['""']);
-            expect(results[0]).toBe('');
-        });
-
-        it('parses integer', async () => {
+        it('returns empty object for number root', async () => {
             const results = await parseChunks(['42']);
-            expect(results[0]).toBe(42);
+            expect(results[0]).toEqual({});
         });
 
-        it('parses negative integer', async () => {
-            const results = await parseChunks(['-123']);
-            expect(results[0]).toBe(-123);
-        });
-
-        it('parses zero', async () => {
-            const results = await parseChunks(['0']);
-            expect(results[0]).toBe(0);
-        });
-
-        it('parses float', async () => {
-            const results = await parseChunks(['3.14']);
-            expect(results[0]).toBe(3.14);
-        });
-
-        it('parses negative float', async () => {
-            const results = await parseChunks(['-0.5']);
-            expect(results[0]).toBe(-0.5);
-        });
-
-        it('parses scientific notation', async () => {
-            const results = await parseChunks(['1e10']);
-            expect(results[0]).toBe(1e10);
-        });
-
-        it('parses scientific notation with negative exponent', async () => {
-            const results = await parseChunks(['1.5e-3']);
-            expect(results[0]).toBe(1.5e-3);
-        });
-
-        it('parses scientific notation with plus sign', async () => {
-            const results = await parseChunks(['2.5E+4']);
-            expect(results[0]).toBe(2.5e4);
-        });
-
-        it('parses true', async () => {
+        it('returns empty object for boolean root', async () => {
             const results = await parseChunks(['true']);
-            expect(results[0]).toBe(true);
+            expect(results[0]).toEqual({});
         });
 
-        it('parses false', async () => {
-            const results = await parseChunks(['false']);
-            expect(results[0]).toBe(false);
-        });
-
-        it('parses null', async () => {
+        it('returns empty object for null root', async () => {
             const results = await parseChunks(['null']);
-            expect(results[0]).toBe(null);
+            expect(results[0]).toEqual({});
         });
     });
 

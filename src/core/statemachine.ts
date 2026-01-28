@@ -85,6 +85,7 @@ export type Token =
 // ============ State Types ============
 
 export type State =
+    | 'FIND_ROOT'     // Initial: skip junk until { or [
     | 'EXPECT_VALUE'
     | 'EXPECT_KEY_OR_CLOSE'
     | 'EXPECT_COLON'
@@ -93,7 +94,8 @@ export type State =
     | 'IN_STRING'
     | 'IN_STRING_ESCAPE'
     | 'IN_NUMBER'
-    | 'IN_KEYWORD';
+    | 'IN_KEYWORD'
+    | 'DONE';         // Root closed: ignore junk tail
 
 // ============ Stack Frame ============
 
@@ -118,7 +120,7 @@ export interface Context {
  */
 export function createContext(): Context {
     return {
-        state: 'EXPECT_VALUE',
+        state: 'FIND_ROOT',
         stack: [],
         buffer: '',
         isParsingKey: false,
@@ -154,6 +156,8 @@ export function mutate({ctx, token}: {ctx: Context, token: Token}): MutateResult
     const char = token.value;
 
     switch (ctx.state) {
+        case 'FIND_ROOT':
+            return handleFindRoot(ctx, char);
         case 'EXPECT_VALUE':
             return handleExpectValue(ctx, char);
         case 'EXPECT_KEY_OR_CLOSE':
@@ -172,6 +176,8 @@ export function mutate({ctx, token}: {ctx: Context, token: Token}): MutateResult
             return handleInNumber(ctx, char);
         case 'IN_KEYWORD':
             return handleInKeyword(ctx, char);
+        case 'DONE':
+            return { ctx, action: null };  // Ignore everything after root closes
     }
 }
 
@@ -183,6 +189,26 @@ function isWhitespace(c: string): boolean {
 
 function isDigit(c: string): boolean {
     return c >= '0' && c <= '9';
+}
+
+function handleFindRoot(ctx: Context, char: string): MutateResult {
+    // Only respond to { or [, skip everything else (junk preamble)
+    if (char === '{') {
+        return {
+            ctx: { ...ctx, state: 'EXPECT_KEY_OR_CLOSE', stack: [{ type: 'object' }] },
+            action: { type: 'object_start' },
+        };
+    }
+
+    if (char === '[') {
+        return {
+            ctx: { ...ctx, state: 'EXPECT_VALUE', stack: [{ type: 'array' }] },
+            action: { type: 'array_start' },
+        };
+    }
+
+    // Skip junk
+    return { ctx, action: null };
 }
 
 function handleExpectValue(ctx: Context, char: string): MutateResult {
@@ -414,7 +440,7 @@ function handleInKeyword(ctx: Context, char: string): MutateResult {
 
 function afterValue(stack: Frame[]): State {
     if (stack.length === 0) {
-        return 'EXPECT_VALUE';
+        return 'DONE';  // Root closed, ignore trailing junk
     }
     const top = stack[stack.length - 1];
     return top.type === 'object' ? 'EXPECT_COMMA_OR_CLOSE_OBJECT' : 'EXPECT_COMMA_OR_CLOSE_ARRAY';
