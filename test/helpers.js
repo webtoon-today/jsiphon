@@ -1,5 +1,5 @@
 import { Jsiphon } from '../src/jsiphon.js';
-import { META } from '../src/types.js';
+import { META, AMBIGUOUS } from '../src/types.js';
 
 /**
  * Helper to create an async iterable from an array of strings
@@ -40,4 +40,4 @@ export async function parseChunks(chunks, options = {}) {
     return collect(parser);
 }
 
-export { Jsiphon, META };
+export { Jsiphon, META, AMBIGUOUS };

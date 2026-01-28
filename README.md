@@ -6,7 +6,7 @@ An append-only streaming JSON parser for TypeScript. Parse incomplete JSON as it
 
 - **Append-Only Model** - Data is only added, never removed or mutated as the stream progresses
 - **Partial JSON Parsing** - Extract values from incomplete JSON as it streams in
-- **Ambiguity Tracking** - Know when parsed values are assumed due to incomplete input
+- **Ambiguity Tree** - Track stability at any level of the parsed structure
 - **Delta Tracking** - Get only newly added content for efficient UI updates
 - **Junk Text Tolerant** - Skips preamble text before `{`/`[` and ignores trailing text after root closes
 - **Never Throws** - Invalid input returns `{}` or partial results, never exceptions
@@ -42,7 +42,7 @@ npm install jsiphon
 ## Quick Start
 
 ```typescript
-import { Jsiphon, META } from 'jsiphon';
+import { Jsiphon, META, AMBIGUOUS } from 'jsiphon';
 
 // Create a parser with an async iterable stream
 const parser = new Jsiphon<{ name: string; age: number }>({
@@ -51,9 +51,10 @@ const parser = new Jsiphon<{ name: string; age: number }>({
 
 // Iterate over parsed snapshots as they arrive
 for await (const snapshot of parser) {
-    console.log(snapshot.name);            // Partial or complete value
-    console.log(snapshot[META].ambiguous); // true when values are assumed/incomplete
-    console.log(snapshot[META].delta);     // What changed since last snapshot
+    console.log(snapshot.name);                            // Partial or complete value
+    console.log(snapshot[META].ambiguous[AMBIGUOUS]);      // true if any value is unstable
+    console.log(snapshot[META].ambiguous.name[AMBIGUOUS]); // true if name is unstable
+    console.log(snapshot[META].delta);                     // What changed since last snapshot
 }
 ```
 
@@ -101,22 +102,26 @@ Current metadata about the parse state.
 
 ```typescript
 interface MetaInfo {
-    ambiguous: boolean;        // true when parsed values are assumed/incomplete
-    reason?: AmbiguityReason;  // Why the value is ambiguous (when ambiguous is true)
+    ambiguous: AmbiguityTree;  // Tree tracking stability at each level
     text: string;              // The accumulated input text
     delta?: DeepPartial<T>;    // What changed since last snapshot
 }
+
+// AmbiguityTree mirrors the data structure
+// Each node has [AMBIGUOUS]: boolean indicating if this subtree is stable
+type AmbiguityTree = { [AMBIGUOUS]: boolean; [key: string]: AmbiguityTree };
 ```
 
-### `META`
+### `META` and `AMBIGUOUS`
 
-A unique symbol used to access metadata on snapshots.
+Unique symbols used to access metadata and ambiguity state.
 
 ```typescript
-import { META } from 'jsiphon';
+import { META, AMBIGUOUS } from 'jsiphon';
 
 for await (const snapshot of parser) {
-    console.log(snapshot[META].ambiguous);
+    console.log(snapshot[META].ambiguous[AMBIGUOUS]);       // Root stability
+    console.log(snapshot[META].ambiguous.name[AMBIGUOUS]);  // Field stability
     console.log(snapshot[META].delta);
 }
 ```
@@ -134,7 +139,7 @@ type ParseResult<T> = T & { [META]: MetaInfo };
 ### Parsing Streaming LLM Output
 
 ```typescript
-import { Jsiphon, META } from 'jsiphon';
+import { Jsiphon, META, AMBIGUOUS } from 'jsiphon';
 
 interface LLMResponse {
     answer: string;
@@ -162,8 +167,8 @@ async function handleLLMStream() {
         // Update UI with partial data
         updateAnswerDisplay(snapshot.answer);
 
-        if (!snapshot[META].ambiguous) {
-            // No ambiguous means all values are confirmed
+        if (!snapshot[META].ambiguous.sources?.[AMBIGUOUS]) {
+            // sources is stable
             showSources(snapshot.sources);
         }
     }
@@ -212,8 +217,8 @@ const parser = new Jsiphon<UserData>({
 for await (const snapshot of parser) {
     console.log(snapshot.user?.name);
     console.log(snapshot.user?.profile?.age);
-    console.log(snapshot[META].ambiguous); // true while streaming
-    console.log(snapshot[META].reason);    // e.g., "number value may continue"
+    console.log(snapshot[META].ambiguous[AMBIGUOUS]);                    // true while any part is streaming
+    console.log(snapshot[META].ambiguous.user?.profile?.age[AMBIGUOUS]); // true while age is streaming
 }
 ```
 
@@ -289,19 +294,40 @@ const parser = new Jsiphon<MyType>({
 });
 ```
 
-## Ambiguity Scenarios
+## Ambiguity Tree
 
-The parser tracks ambiguous when values are assumed due to incomplete input:
+The ambiguity tree mirrors the data structure, tracking stability at each level. `[AMBIGUOUS]: true` means "this value or any descendant is unstable".
 
-| Input | `snapshot` value | Ambiguity | Reason |
-|-------|------------------|-----------|--------|
-| `{` | `{}` | false | - |
-| `{"` | `{}` | true | property name is not closed |
-| `{"key"` | `{key: undefined}` | false | - |
-| `{"key":` | `{key: undefined}` | false | - |
-| `{"key": "val` | `{key: "val"}` | true | string value is not closed |
-| `{"key": 123` | `{key: 123}` | true | number value may continue |
-| `{"key": "value"}` | `{key: "value"}` | false | - |
+```typescript
+// Streaming: {"b": {"c": "hel
+snapshot = { b: { c: "hel" } }
+snapshot[META].ambiguous = {
+    [AMBIGUOUS]: true,      // root is unstable (has unstable descendant)
+    b: {
+        [AMBIGUOUS]: true,  // b is unstable (has unstable descendant)
+        c: { [AMBIGUOUS]: true }  // c is actively streaming
+    }
+}
+
+// Streaming: {"b": {"c": "hello"}, "d": "wor
+snapshot = { b: { c: "hello" }, d: "wor" }
+snapshot[META].ambiguous = {
+    [AMBIGUOUS]: true,       // root is unstable (d is streaming)
+    b: {
+        [AMBIGUOUS]: false,  // b is stable (c is complete)
+        c: { [AMBIGUOUS]: false }
+    },
+    d: { [AMBIGUOUS]: true } // d is actively streaming
+}
+```
+
+Check stability at any level:
+```typescript
+if (!snapshot[META].ambiguous.b[AMBIGUOUS]) {
+    // b and all its descendants are stable
+    saveToDatabase(snapshot.b);
+}
+```
 
 ## TypeScript Support
 

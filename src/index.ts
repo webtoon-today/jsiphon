@@ -1,7 +1,8 @@
 export { Jsiphon } from './jsiphon.js';
 export {
     META,
-    type AmbiguityReason,
+    AMBIGUOUS,
+    type AmbiguityNode,
     type MetaInfo,
     type DeepPartial,
     type ParseResult,

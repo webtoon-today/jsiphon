@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Jsiphon, META, toStream, collect, parseChunks } from './helpers.js';
+import { Jsiphon, META, AMBIGUOUS, toStream, collect, parseChunks } from './helpers.js';
 
 describe('Streaming Parsing', () => {
     describe('partial string values', () => {
@@ -131,7 +131,7 @@ describe('Streaming Parsing', () => {
 
             const last = results[results.length - 1];
             expect(last.a).toBe(1);
-            expect(last[META].ambiguous).toBe(false);
+            expect(last[META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('handles array character by character', async () => {

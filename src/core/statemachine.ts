@@ -142,6 +142,7 @@ export type Action =
     | { type: 'array_start' }
     | { type: 'array_end' }
     | { type: 'set_key'; key: string }
+    | { type: 'value_start' }
     | { type: 'set_value'; value: unknown };
 
 /**
@@ -219,7 +220,7 @@ function handleExpectValue(ctx: Context, char: string): MutateResult {
     if (char === '"') {
         return {
             ctx: { ...ctx, state: 'IN_STRING', buffer: '', isParsingKey: false },
-            action: null,
+            action: { type: 'value_start' },
         };
     }
 
@@ -248,14 +249,14 @@ function handleExpectValue(ctx: Context, char: string): MutateResult {
     if (char === '-' || isDigit(char)) {
         return {
             ctx: { ...ctx, state: 'IN_NUMBER', buffer: char },
-            action: null,
+            action: { type: 'value_start' },
         };
     }
 
     if (char === 't' || char === 'f' || char === 'n') {
         return {
             ctx: { ...ctx, state: 'IN_KEYWORD', buffer: char },
-            action: null,
+            action: { type: 'value_start' },
         };
     }
 
@@ -353,7 +354,7 @@ function handleInString(ctx: Context, char: string): MutateResult {
             const newStack = [...ctx.stack];
             newStack[newStack.length - 1] = { ...newStack[newStack.length - 1], key: ctx.buffer };
             return {
-                ctx: { ...ctx, state: 'EXPECT_COLON', buffer: '', stack: newStack },
+                ctx: { ...ctx, state: 'EXPECT_COLON', buffer: '', stack: newStack, isParsingKey: false },
                 action: { type: 'set_key', key: ctx.buffer },
             };
         } else {

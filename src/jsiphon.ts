@@ -1,4 +1,4 @@
-import { META, type MetaInfo, type ParseResult, type ParserOptions, type DeepPartial, type AmbiguityReason } from './types.js';
+import { META, AMBIGUOUS, type AmbiguityNode, type MetaInfo, type ParseResult, type ParserOptions, type DeepPartial } from './types.js';
 import { type Context, type Token, createContext, mutate } from './core/statemachine.js';
 import { type ResultState, createResultState, reduce } from './core/reducer.js';
 
@@ -52,111 +52,130 @@ export class Jsiphon<T> implements AsyncIterable<ParseResult<T>> {
     }
 
     private createSnapshot(): ParseResult<T> {
-        const value = this.getSnapshotValue();
-        const currJson = JSON.stringify(value.data);
+        const data = this.getSnapshotData();
+        const currJson = JSON.stringify(data);
 
-        // Calculate delta using JSON comparison
+        // Calculate delta
         let delta: DeepPartial<T> | undefined;
         if (this.trackDelta && this.prevJson) {
             if (this.prevJson !== currJson) {
-                delta = this.calculateDelta(JSON.parse(this.prevJson), value.data);
+                delta = this.calculateDelta(JSON.parse(this.prevJson), data);
             }
         }
         this.prevJson = currJson;
 
+        // Clone ambiguity tree from reducer
+        const ambiguous = this.cloneAmbiguityTree(this.objectState.ambiguityRoot);
+
         const meta: MetaInfo<T> = {
-            ambiguous: value.ambiguous,
-            reason: value.reason,
+            ambiguous,
             text: this.text,
             delta,
         };
 
-        return this.attachMeta(value.data as T, meta);
+        return this.attachMeta(data as T, meta);
     }
 
-    private getSnapshotValue(): { data: unknown; ambiguous: boolean; reason?: AmbiguityReason } {
-        // Clone the current result
+    private getSnapshotData(): unknown {
         const data = deepClone(this.objectState.root) ?? {};
-        let ambiguous = false;  // Only true when actively building a value
-        let reason: AmbiguityReason | undefined;
 
-        // Apply incomplete value based on current state
+        // Apply incomplete value if streaming
+        const isStreaming =
+            this.ctx.state === 'IN_STRING' ||
+            this.ctx.state === 'IN_STRING_ESCAPE' ||
+            this.ctx.state === 'IN_NUMBER' ||
+            this.ctx.state === 'IN_KEYWORD';
+
+        if (isStreaming && !this.ctx.isParsingKey) {
+            const value = this.getIncompleteValue();
+            const path = this.getStreamingPath();
+            if (path) {
+                this.applyValueAtPath(data, path, value);
+            }
+        }
+
+        return data;
+    }
+
+    private getIncompleteValue(): unknown {
         switch (this.ctx.state) {
             case 'IN_STRING':
-                if (this.ctx.isParsingKey) {
-                    reason = 'property name is not closed';
-                } else {
-                    reason = 'string value is not closed';
-                    this.applyIncompleteValue(data, this.ctx.buffer);
-                }
-                ambiguous = true;
-                break;
-
             case 'IN_STRING_ESCAPE':
-                reason = 'string value is not closed';
-                this.applyIncompleteValue(data, this.ctx.buffer);
-                ambiguous = true;
-                break;
-
+                return this.ctx.buffer;
             case 'IN_NUMBER':
-                reason = 'number value may continue';
-                this.applyIncompleteValue(data, parseFloat(this.ctx.buffer) || 0);
-                ambiguous = true;
-                break;
-
+                return parseFloat(this.ctx.buffer) || 0;
             case 'IN_KEYWORD': {
                 const kw = this.ctx.buffer;
-                if ('true'.startsWith(kw) || 'false'.startsWith(kw)) {
-                    reason = 'boolean value is incomplete';
-                } else {
-                    reason = 'null value is incomplete';
-                }
-                let kwValue: boolean | null = null;
-                if ('true'.startsWith(kw)) kwValue = true;
-                else if ('false'.startsWith(kw)) kwValue = false;
-                this.applyIncompleteValue(data, kwValue);
-                ambiguous = true;
-                break;
+                if ('true'.startsWith(kw)) return true;
+                if ('false'.startsWith(kw)) return false;
+                return null;
             }
+            default:
+                return undefined;
         }
-
-        return { data, ambiguous, reason };
     }
 
-    private applyIncompleteValue(root: unknown, value: unknown): void {
-        // Use ctx.stack for navigation (preserves keys)
-        const stack = this.ctx.stack;
-        if (stack.length === 0) return;
+    private getStreamingPath(): (string | number)[] | null {
+        const stack = this.objectState.stack;
+        if (stack.length === 0) return null;
 
-        // Navigate to the target container
-        let current = root;
-        for (let i = 0; i < stack.length - 1; i++) {
+        // Build path from reducer's stack (using pathKey)
+        const path: (string | number)[] = [];
+        for (let i = 1; i < stack.length; i++) {
             const frame = stack[i];
-            if (frame.type === 'object' && frame.key !== undefined) {
-                current = (current as Record<string, unknown>)[frame.key];
-            } else if (frame.type === 'array') {
-                const arr = current as unknown[];
-                current = arr[arr.length - 1];
+            if (frame.pathKey !== undefined) {
+                path.push(frame.pathKey);
             }
         }
 
-        // Apply value to the last frame's container
-        const last = stack[stack.length - 1];
-        if (last.type === 'object' && last.key !== undefined) {
-            (current as Record<string, unknown>)[last.key] = value;
-        } else if (last.type === 'array') {
-            (current as unknown[]).push(value);
+        // Add current key/index for the streaming value
+        const top = stack[stack.length - 1];
+        if (top.type === 'object' && top.key !== undefined) {
+            path.push(top.key);
+        } else if (top.type === 'array') {
+            path.push((top.ref as unknown[]).length);
         }
+
+        return path;
+    }
+
+    private applyValueAtPath(root: unknown, path: (string | number)[], value: unknown): void {
+        if (path.length === 0) return;
+
+        let current = root;
+        for (let i = 0; i < path.length - 1; i++) {
+            current = (current as Record<string | number, unknown>)[path[i]];
+        }
+
+        const lastKey = path[path.length - 1];
+        if (Array.isArray(current) && typeof lastKey === 'number') {
+            if (lastKey >= current.length) {
+                current.push(value);
+            } else {
+                current[lastKey] = value;
+            }
+        } else {
+            (current as Record<string, unknown>)[lastKey as string] = value;
+        }
+    }
+
+    private cloneAmbiguityTree(node: AmbiguityNode): AmbiguityNode {
+        const clone: AmbiguityNode = { [AMBIGUOUS]: node[AMBIGUOUS] };
+        for (const key of Object.keys(node)) {
+            const child = node[key];
+            if (child && typeof child === 'object') {
+                clone[key] = this.cloneAmbiguityTree(child as AmbiguityNode);
+            }
+        }
+        return clone;
     }
 
     private attachMeta(value: T, meta: MetaInfo<T>): ParseResult<T> {
         if (value === null || typeof value !== 'object') {
-            // For primitives, box it
             const wrapper = Object(value) as T & { [META]: MetaInfo<T> };
             Object.defineProperty(wrapper, META, { value: meta, enumerable: false });
             return wrapper;
         }
-        // For objects/arrays, attach non-enumerable
         Object.defineProperty(value, META, { value: meta, enumerable: false });
         return value as ParseResult<T>;
     }

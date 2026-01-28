@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Jsiphon, META, toStream, collect, parseChunks } from './helpers.js';
+import { Jsiphon, META, AMBIGUOUS, toStream, collect, parseChunks } from './helpers.js';
 
 describe('Basic JSON Parsing', () => {
     // Note: Root-level primitives are not supported.
@@ -30,7 +30,7 @@ describe('Basic JSON Parsing', () => {
         it('parses empty object', async () => {
             const results = await parseChunks(['{}']);
             expect(results[0]).toEqual({});
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('parses object with single string property', async () => {
@@ -68,7 +68,7 @@ describe('Basic JSON Parsing', () => {
         it('parses empty array', async () => {
             const results = await parseChunks(['[]']);
             expect(results[0]).toEqual([]);
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('parses array of numbers', async () => {
@@ -157,8 +157,7 @@ describe('Basic JSON Parsing', () => {
 
         it('sets ambiguous to false for complete JSON', async () => {
             const results = await parseChunks(['{"complete": true}']);
-            expect(results[0][META].ambiguous).toBe(false);
-            expect(results[0][META].reason).toBeUndefined();
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
     });
 });

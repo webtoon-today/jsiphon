@@ -5,24 +5,25 @@
 export const META = Symbol('meta');
 
 /**
- * Reason codes for ambiguous parsing.
+ * Unique symbol used to access ambiguity state in the ambiguity tree.
  */
-export type AmbiguityReason =
-    | 'property name is not closed'
-    | 'string value is not closed'
-    | 'number value may continue'
-    | 'boolean value is incomplete'
-    | 'null value is incomplete';
+export const AMBIGUOUS = Symbol('ambiguous');
+
+/**
+ * Ambiguity tree node - tracks stability at each level.
+ * [AMBIGUOUS]: true means this value or any descendant is unstable.
+ */
+export interface AmbiguityNode {
+    [AMBIGUOUS]: boolean;
+    [key: string]: AmbiguityNode | boolean;
+}
 
 /**
  * Metadata about the current parse state.
  */
 export interface MetaInfo<T = unknown> {
-    /** Whether the parsed result contains ambiguous/assumed values due to incomplete input */
-    ambiguous: boolean;
-
-    /** Human-readable reason why the value is ambiguous (only present when ambiguous is true) */
-    reason?: AmbiguityReason;
+    /** Tree tracking stability at each level of the parsed structure */
+    ambiguous: AmbiguityNode;
 
     /** The accumulated raw input text */
     text: string;

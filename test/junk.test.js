@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseChunks, META } from './helpers.js';
+import { parseChunks, META, AMBIGUOUS } from './helpers.js';
 
 describe('Junk Handling', () => {
     describe('junk before JSON', () => {
         it('skips text before opening brace', async () => {
             const results = await parseChunks(['Here is your JSON: {"name": "test"}']);
             expect(results[0].name).toBe('test');
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('skips text before opening bracket', async () => {
@@ -34,7 +34,7 @@ describe('Junk Handling', () => {
         it('ignores text after closing brace', async () => {
             const results = await parseChunks(['{"name": "test"} and some trailing text']);
             expect(results[0].name).toBe('test');
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('ignores text after closing bracket', async () => {

@@ -1,16 +1,19 @@
-import type { Action, Frame } from './statemachine.js';
+import type { Action } from './statemachine.js';
+import { AMBIGUOUS, type AmbiguityNode } from '../types.js';
 
 // ============ Result State ============
 
 export interface ResultState {
     root: unknown;
     stack: ResultFrame[];
+    ambiguityRoot: AmbiguityNode;
 }
 
 interface ResultFrame {
     type: 'object' | 'array';
     ref: Record<string, unknown> | unknown[];
-    key?: string;
+    key?: string;  // Pending key for objects, cleared after value is attached
+    pathKey?: string | number;  // Key/index used to reach this frame from parent
 }
 
 /**
@@ -20,14 +23,19 @@ export function createResultState(): ResultState {
     return {
         root: undefined,
         stack: [],
+        ambiguityRoot: { [AMBIGUOUS]: false },
     };
+}
+
+/**
+ * Get path from stack (skip root frame which has no pathKey)
+ */
+function getPath(stack: ResultFrame[]): (string | number)[] {
+    return stack.slice(1).map(f => f.pathKey!);
 }
 
 // ============ Reduce Function ============
 
-/**
- * Apply an action to the result state, returning new state.
- */
 export function reduce({state, action}: {state: ResultState, action: Action}): ResultState {
     switch (action.type) {
         case 'object_start':
@@ -40,6 +48,8 @@ export function reduce({state, action}: {state: ResultState, action: Action}): R
             return handleContainerEnd(state);
         case 'set_key':
             return handleSetKey(state, action.key);
+        case 'value_start':
+            return handleValueStart(state);
         case 'set_value':
             return handleSetValue(state, action.value);
         case 'set_root':
@@ -51,43 +61,78 @@ export function reduce({state, action}: {state: ResultState, action: Action}): R
 
 function handleObjectStart(state: ResultState): ResultState {
     const obj: Record<string, unknown> = {};
+    const ambNode: AmbiguityNode = { [AMBIGUOUS]: true };
 
     if (state.stack.length === 0) {
         // Root object
         return {
             root: obj,
             stack: [{ type: 'object', ref: obj }],
+            ambiguityRoot: ambNode,
         };
     }
 
-    // Nested object - attach to parent
+    // Get key/index for this container
+    const top = state.stack[state.stack.length - 1];
+    const pathKey = top.type === 'object' ? top.key! : (top.ref as unknown[]).length;
+
+    // Attach to parent data
     const newStack = attachToParent(state.stack, obj);
+
+    // Attach to ambiguity tree
+    const path = getPath(state.stack);
+    const parentNode = getNodeAtPath(state.ambiguityRoot, path);
+    parentNode[pathKey] = ambNode;
+    markPathAmbiguous(state.ambiguityRoot, path);
+
     return {
         ...state,
-        stack: [...newStack, { type: 'object', ref: obj }],
+        stack: [...newStack, { type: 'object', ref: obj, pathKey }],
     };
 }
 
 function handleArrayStart(state: ResultState): ResultState {
     const arr: unknown[] = [];
+    const ambNode: AmbiguityNode = { [AMBIGUOUS]: true };
 
     if (state.stack.length === 0) {
         // Root array
         return {
             root: arr,
             stack: [{ type: 'array', ref: arr }],
+            ambiguityRoot: ambNode,
         };
     }
 
-    // Nested array - attach to parent
+    // Get key/index for this container
+    const top = state.stack[state.stack.length - 1];
+    const pathKey = top.type === 'object' ? top.key! : (top.ref as unknown[]).length;
+
+    // Attach to parent data
     const newStack = attachToParent(state.stack, arr);
+
+    // Attach to ambiguity tree
+    const path = getPath(state.stack);
+    const parentNode = getNodeAtPath(state.ambiguityRoot, path);
+    parentNode[pathKey] = ambNode;
+    markPathAmbiguous(state.ambiguityRoot, path);
+
     return {
         ...state,
-        stack: [...newStack, { type: 'array', ref: arr }],
+        stack: [...newStack, { type: 'array', ref: arr, pathKey }],
     };
 }
 
 function handleContainerEnd(state: ResultState): ResultState {
+    // Mark current container as stable
+    const path = getPath(state.stack);
+    const node = getNodeAtPath(state.ambiguityRoot, path);
+    node[AMBIGUOUS] = false;
+
+    // Update ancestors
+    const parentPath = path.slice(0, -1);
+    updateAncestorAmbiguity(state.ambiguityRoot, parentPath);
+
     return {
         ...state,
         stack: state.stack.slice(0, -1),
@@ -101,25 +146,56 @@ function handleSetKey(state: ResultState, key: string): ResultState {
     const top = { ...newStack[newStack.length - 1], key };
     newStack[newStack.length - 1] = top;
 
+    // Create ambiguity node for this key
+    const path = getPath(state.stack);
+    const parentNode = getNodeAtPath(state.ambiguityRoot, path);
+    parentNode[key] = { [AMBIGUOUS]: true };
+    markPathAmbiguous(state.ambiguityRoot, path);
+
     return { ...state, stack: newStack };
+}
+
+function handleValueStart(state: ResultState): ResultState {
+    if (state.stack.length === 0) return state;
+
+    const top = state.stack[state.stack.length - 1];
+
+    // For arrays, create ambiguity node at next index
+    if (top.type === 'array') {
+        const index = (top.ref as unknown[]).length;
+        const path = getPath(state.stack);
+        const parentNode = getNodeAtPath(state.ambiguityRoot, path);
+        parentNode[index] = { [AMBIGUOUS]: true };
+        markPathAmbiguous(state.ambiguityRoot, path);
+    }
+    // For objects, node already created by set_key
+
+    return state;
 }
 
 function handleSetValue(state: ResultState, value: unknown): ResultState {
     if (state.stack.length === 0) {
-        // Root primitive
         return { ...state, root: value };
     }
+
+    // Get key/index for this value
+    const top = state.stack[state.stack.length - 1];
+    const key = top.type === 'object' ? top.key! : (top.ref as unknown[]).length;
+
+    // Mark ambiguity node as stable
+    const path = getPath(state.stack);
+    const parentNode = getNodeAtPath(state.ambiguityRoot, path);
+    parentNode[key] = { [AMBIGUOUS]: false };
+
+    // Update ancestors
+    updateAncestorAmbiguity(state.ambiguityRoot, path);
 
     const newStack = attachToParent(state.stack, value);
     return { ...state, stack: newStack };
 }
 
-// ============ Helpers ============
+// ============ Data Helpers ============
 
-/**
- * Attach a value to the current parent container.
- * Returns new stack with key cleared (for objects).
- */
 function attachToParent(stack: ResultFrame[], value: unknown): ResultFrame[] {
     const newStack = [...stack];
     const top = newStack[newStack.length - 1];
@@ -127,7 +203,6 @@ function attachToParent(stack: ResultFrame[], value: unknown): ResultFrame[] {
     if (top.type === 'object') {
         if (top.key !== undefined) {
             (top.ref as Record<string, unknown>)[top.key] = value;
-            // Clear the key
             newStack[newStack.length - 1] = { ...top, key: undefined };
         }
     } else {
@@ -135,4 +210,46 @@ function attachToParent(stack: ResultFrame[], value: unknown): ResultFrame[] {
     }
 
     return newStack;
+}
+
+// ============ Ambiguity Helpers ============
+
+function getNodeAtPath(root: AmbiguityNode, path: (string | number)[]): AmbiguityNode {
+    let current = root;
+    for (const key of path) {
+        current = current[key] as AmbiguityNode;
+    }
+    return current;
+}
+
+function markPathAmbiguous(root: AmbiguityNode, path: (string | number)[]): void {
+    root[AMBIGUOUS] = true;
+    let current = root;
+    for (const key of path) {
+        current = current[key] as AmbiguityNode;
+        if (current) current[AMBIGUOUS] = true;
+    }
+}
+
+function updateAncestorAmbiguity(root: AmbiguityNode, path: (string | number)[]): void {
+    const nodes: AmbiguityNode[] = [root];
+    let current = root;
+    for (const key of path) {
+        current = current[key] as AmbiguityNode;
+        if (current) nodes.push(current);
+    }
+
+    for (let i = nodes.length - 1; i >= 0; i--) {
+        nodes[i][AMBIGUOUS] = hasAmbiguousChild(nodes[i]);
+    }
+}
+
+function hasAmbiguousChild(node: AmbiguityNode): boolean {
+    for (const key of Object.keys(node)) {
+        const child = node[key];
+        if (child && typeof child === 'object' && (child as AmbiguityNode)[AMBIGUOUS]) {
+            return true;
+        }
+    }
+    return false;
 }

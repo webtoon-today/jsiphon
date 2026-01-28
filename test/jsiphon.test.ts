@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Jsiphon } from '../src/jsiphon.js';
-import { META } from '../src/types.js';
+import { META, AMBIGUOUS } from '../src/types.js';
 
 /**
  * Helper to create an async iterable from strings
@@ -32,7 +32,7 @@ describe('Jsiphon', () => {
 
             expect(results).toHaveLength(1);
             expect(results[0].name).toBe('test');
-            expect(results[0][META].ambiguous).toBe(false);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('parses nested object', async () => {
@@ -76,9 +76,9 @@ describe('Jsiphon', () => {
 
             expect(results).toHaveLength(2);
             expect(results[0].msg).toBe('He');
-            expect(results[0][META].ambiguous).toBe(true);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(true);
             expect(results[1].msg).toBe('Hello');
-            expect(results[1][META].ambiguous).toBe(false);
+            expect(results[1][META].ambiguous[AMBIGUOUS]).toBe(false);
         });
 
         it('handles character-by-character streaming', async () => {
@@ -91,7 +91,7 @@ describe('Jsiphon', () => {
             // Final result should be correct
             const last = results[results.length - 1];
             expect(last.a).toBe(1);
-            expect(last[META].ambiguous).toBe(false);
+            expect(last[META].ambiguous[AMBIGUOUS]).toBe(false);
         });
     });
 
@@ -103,8 +103,8 @@ describe('Jsiphon', () => {
             const results = await collect(parser);
 
             expect(results[0].msg).toBe('hel');
-            expect(results[0][META].ambiguous).toBe(true);
-            expect(results[0][META].reason).toBe('string value is not closed');
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(true);
+            expect(results[0][META].ambiguous.msg[AMBIGUOUS]).toBe(true);
         });
 
         it('marks incomplete number as ambiguous', async () => {
@@ -114,8 +114,8 @@ describe('Jsiphon', () => {
             const results = await collect(parser);
 
             expect(results[0].n).toBe(123);
-            expect(results[0][META].ambiguous).toBe(true);
-            expect(results[0][META].reason).toBe('number value may continue');
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(true);
+            expect(results[0][META].ambiguous.n[AMBIGUOUS]).toBe(true);
         });
 
         it('marks incomplete keyword as ambiguous', async () => {
@@ -125,8 +125,8 @@ describe('Jsiphon', () => {
             const results = await collect(parser);
 
             expect(results[0].b).toBe(true);  // Guessed as true
-            expect(results[0][META].ambiguous).toBe(true);
-            expect(results[0][META].reason).toBe('boolean value is incomplete');
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(true);
+            expect(results[0][META].ambiguous.b[AMBIGUOUS]).toBe(true);
         });
     });
 
