@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="jsiphon.jpg" alt="jsiphon" width="600">
+</p>
+
 # jsiphon
 
 An append-only streaming JSON parser for TypeScript. Parse incomplete JSON as it streams in - previously parsed data is never removed or mutated, only extended. Perfect for real-time parsing of LLM outputs, chunked HTTP responses, or any scenario where JSON arrives incrementally.
@@ -17,6 +21,10 @@ An append-only streaming JSON parser for TypeScript. Parse incomplete JSON as it
 ## Append-Only Design
 
 This library follows an append-only model: as JSON streams in, data is only added, never removed or mutated.
+
+<p align="center">
+  <img src="concept.jpg" alt="jsiphon streaming concept" width="800">
+</p>
 
 |       | Chunk 1      |   | Chunk 2        |   | Chunk 3          |
 |-------|--------------|---|----------------|---|------------------|
