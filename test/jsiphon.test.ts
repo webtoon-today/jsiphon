@@ -147,7 +147,7 @@ describe('Jsiphon', () => {
             });
             const results = await collect(parser);
 
-            expect(results[1][META].delta).toEqual({ msg: 'Hello' });
+            expect(results[1][META].delta).toEqual({ msg: 'llo' });
         });
     });
 

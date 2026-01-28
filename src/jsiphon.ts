@@ -202,7 +202,12 @@ export class Jsiphon<T> implements AsyncIterable<ParseResult<T>> {
                     hasDelta = true;
                 }
             } else if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
-                delta[key] = currVal;
+                // For strings, calculate the appended suffix if applicable
+                if (typeof prevVal === 'string' && typeof currVal === 'string' && currVal.startsWith(prevVal)) {
+                    delta[key] = currVal.slice(prevVal.length);
+                } else {
+                    delta[key] = currVal;
+                }
                 hasDelta = true;
             }
         }
