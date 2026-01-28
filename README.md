@@ -8,6 +8,9 @@ An append-only streaming JSON parser for TypeScript. Parse incomplete JSON as it
 - **Partial JSON Parsing** - Extract values from incomplete JSON as it streams in
 - **Ambiguity Tracking** - Know when parsed values are assumed due to incomplete input
 - **Delta Tracking** - Get only newly added content for efficient UI updates
+- **Junk Text Tolerant** - Skips preamble text before `{`/`[` and ignores trailing text after root closes
+- **Never Throws** - Invalid input returns `{}` or partial results, never exceptions
+- **Objects/Arrays Only** - Root must be `{` or `[`. Primitive roots return `{}`
 - **Type Safe** - Full TypeScript support with generics
 - **Zero Dependencies** - Lightweight and self-contained
 
