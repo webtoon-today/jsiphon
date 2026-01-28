@@ -57,8 +57,11 @@ export class Jsiphon<T> implements AsyncIterable<ParseResult<T>> {
 
         // Calculate delta
         let delta: DeepPartial<T> | undefined;
-        if (this.trackDelta && this.prevJson) {
-            if (this.prevJson !== currJson) {
+        if (this.trackDelta) {
+            if (!this.prevJson) {
+                // First chunk: return full contents as delta
+                delta = data as DeepPartial<T>;
+            } else if (this.prevJson !== currJson) {
                 delta = this.calculateDelta(JSON.parse(this.prevJson), data);
             }
         }
