@@ -23,7 +23,7 @@ export function createResultState(): ResultState {
     return {
         root: undefined,
         stack: [],
-        ambiguityRoot: { [AMBIGUOUS]: false },
+        ambiguityRoot: { [AMBIGUOUS]: true },
     };
 }
 
