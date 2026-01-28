@@ -358,6 +358,37 @@ for await (const snapshot of parser) {
 }
 ```
 
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+### Getting Started
+
+```bash
+# Fork and clone the repository
+git clone https://github.com/YOUR_USERNAME/jsiphon.git
+cd jsiphon
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+```
+
+### Pull Request Process
+
+1. Create a feature branch from `main`
+2. Make your changes with clear, focused commits
+3. Ensure all tests pass (`npm test`)
+4. Submit a PR with a clear description
+
+### Important Rules
+
+1. **No AI-generated contributions** - "vibe-coded" pull requests will be automatically rejected. We value human understanding and craftsmanship.
+
+2. **Summarize your contribution by hand** - Write a clear summary of what you changed and why. This demonstrates you understand the codebase and your changes.
+
 ## License
 
 MIT
