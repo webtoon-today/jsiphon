@@ -1,5 +1,6 @@
 import * as esbuild from 'esbuild';
 
+// ESM build
 await esbuild.build({
     entryPoints: ['src/index.ts'],
     bundle: true,
@@ -10,4 +11,15 @@ await esbuild.build({
     outfile: 'dist/index.js',
 });
 
-console.log('Build complete');
+// CommonJS build
+await esbuild.build({
+    entryPoints: ['src/index.ts'],
+    bundle: true,
+    minify: true,
+    format: 'cjs',
+    platform: 'node',
+    target: 'es2022',
+    outfile: 'dist/index.cjs',
+});
+
+console.log('Build complete (ESM + CJS)');
