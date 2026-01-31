@@ -341,6 +341,27 @@ describe('Ambiguity Tree', () => {
             expect(results[0][META].ambiguous.a.b.c[AMBIGUOUS]).toBe(true);
         });
 
+        it('keeps parent ambiguous when child value completes but parent not closed', async () => {
+            // Regression test: parent object should remain ambiguous even after
+            // child value completes, until the parent receives its closing }
+            const results = await parseChunks([
+                '{"outer": {"first": true',
+                ', "second": []}}'
+            ]);
+
+            // Chunk 1: first is complete, but outer object is not closed
+            expect(results[0].outer.first).toBe(true);
+            expect(results[0][META].ambiguous[AMBIGUOUS]).toBe(true);
+            expect(results[0][META].ambiguous.outer[AMBIGUOUS]).toBe(true);  // Must stay true!
+            expect(results[0][META].ambiguous.outer.first[AMBIGUOUS]).toBe(false);
+
+            // Chunk 2: everything complete
+            expect(results[1].outer.first).toBe(true);
+            expect(results[1].outer.second).toEqual([]);
+            expect(results[1][META].ambiguous[AMBIGUOUS]).toBe(false);
+            expect(results[1][META].ambiguous.outer[AMBIGUOUS]).toBe(false);
+        });
+
         it('tracks stability progression', async () => {
             const results = await parseChunks([
                 '{"b": {"c": "hel',

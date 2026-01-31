@@ -1,6 +1,6 @@
 {
   "name": "jsiphon",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "An append-only streaming JSON parser. Parse incomplete JSON as it streams in - data is never removed or mutated, only extended.",
   "type": "module",
   "main": "./dist/index.js",

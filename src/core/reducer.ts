@@ -240,7 +240,12 @@ function updateAncestorAmbiguity(root: AmbiguityNode, path: (string | number)[])
     }
 
     for (let i = nodes.length - 1; i >= 0; i--) {
-        nodes[i][AMBIGUOUS] = hasAmbiguousChild(nodes[i]);
+        // Only propagate ambiguity UPWARD (set to true), never clear to false.
+        // A container's ambiguity should only be cleared by handleContainerEnd
+        // when the container is actually closed (receives } or ]).
+        if (hasAmbiguousChild(nodes[i])) {
+            nodes[i][AMBIGUOUS] = true;
+        }
     }
 }
 
