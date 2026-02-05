@@ -1,4 +1,4 @@
-import { META, AMBIGUOUS, type AmbiguityNode, type MetaInfo, type ParseResult, type ParserOptions, type DeepPartial } from './types.js';
+import { META, AMBIGUOUS, type AmbiguityNode, type MetaInfo, type ParseResult, type ParserOptions, type DeepPartial, AmbiguityTree } from './types.js';
 import { type Context, type Token, createContext, mutate } from './core/statemachine.js';
 import { type ResultState, createResultState, reduce } from './core/reducer.js';
 
@@ -67,8 +67,8 @@ export class Jsiphon<T> implements AsyncIterable<ParseResult<T>> {
         }
         this.prevJson = currJson;
 
-        // Clone ambiguity tree from reducer
-        const ambiguous = this.cloneAmbiguityTree(this.objectState.ambiguityRoot);
+        // Clone ambiguity tree from reducer (cast to match T's structure)
+        const ambiguous = this.cloneAmbiguityTree(this.objectState.ambiguityRoot as AmbiguityTree<T>);
 
         const meta: MetaInfo<T> = {
             ambiguous,
@@ -162,12 +162,12 @@ export class Jsiphon<T> implements AsyncIterable<ParseResult<T>> {
         }
     }
 
-    private cloneAmbiguityTree(node: AmbiguityNode): AmbiguityNode {
-        const clone: AmbiguityNode = { [AMBIGUOUS]: node[AMBIGUOUS] };
+    private cloneAmbiguityTree<T>(node: AmbiguityTree<T>): AmbiguityTree<T> {
+        const clone = { [AMBIGUOUS]: node[AMBIGUOUS] } as AmbiguityTree<T>;
         for (const key of Object.keys(node)) {
-            const child = node[key];
+            const child = (node as Record<string, unknown>)[key];
             if (child && typeof child === 'object') {
-                clone[key] = this.cloneAmbiguityTree(child as AmbiguityNode);
+                (clone as Record<string, unknown>)[key] = this.cloneAmbiguityTree(child as AmbiguityTree<unknown>);
             }
         }
         return clone;

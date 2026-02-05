@@ -1,7 +1,13 @@
 import type { Action } from './statemachine.js';
-import { AMBIGUOUS, type AmbiguityNode } from '../types.js';
+import { AMBIGUOUS, type AmbiguityTree } from '../types.js';
 
 // ============ Result State ============
+
+// Internal ambiguity tree type with index signature for dynamic access
+type AmbiguityNode = AmbiguityTree<unknown> & {
+    [key: string]: AmbiguityNode | undefined;
+    [index: number]: AmbiguityNode | undefined;
+};
 
 export interface ResultState {
     root: unknown;
@@ -82,7 +88,7 @@ function handleObjectStart(state: ResultState): ResultState {
     // Attach to ambiguity tree
     const path = getPath(state.stack);
     const parentNode = getNodeAtPath(state.ambiguityRoot, path);
-    parentNode[pathKey] = ambNode;
+    (parentNode)[pathKey] = ambNode;
     markPathAmbiguous(state.ambiguityRoot, path);
 
     return {
