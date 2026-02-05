@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { Jsiphon, META, AMBIGUOUS, toStream, collect, parseChunks } from './helpers.js';
+import { META, isAmbiguous, parseChunks } from './helpers.js';
 
 describe('Streaming Parsing', () => {
     describe('partial string values', () => {
         it('yields partial string as chunks arrive', async () => {
-            const results = await parseChunks(['{"msg": "He', 'llo', '"}']);
+            const results = await parseChunks<{ msg: string }>(['{"msg": "He', 'llo', '"}']);
 
             expect(results).toHaveLength(3);
             expect(results[0].msg).toBe('He');
@@ -13,7 +13,7 @@ describe('Streaming Parsing', () => {
         });
 
         it('handles string split at any character', async () => {
-            const results = await parseChunks(['{"s": "a', 'b', 'c', 'd', '"}']);
+            const results = await parseChunks<{ s: string }>(['{"s": "a', 'b', 'c', 'd', '"}']);
 
             expect(results[0].s).toBe('a');
             expect(results[1].s).toBe('ab');
@@ -25,7 +25,7 @@ describe('Streaming Parsing', () => {
 
     describe('partial number values', () => {
         it('yields partial number as digits arrive', async () => {
-            const results = await parseChunks(['{"n": 1', '2', '3}']);
+            const results = await parseChunks<{ n: number }>(['{"n": 1', '2', '3}']);
 
             expect(results[0].n).toBe(1);
             expect(results[1].n).toBe(12);
@@ -33,14 +33,14 @@ describe('Streaming Parsing', () => {
         });
 
         it('handles negative number streaming', async () => {
-            const results = await parseChunks(['{"n": -', '4', '2}']);
+            const results = await parseChunks<{ n: number }>(['{"n": -', '4', '2}']);
 
             // After "-" we might not have a valid number yet
             expect(results[results.length - 1].n).toBe(-42);
         });
 
         it('handles float streaming', async () => {
-            const results = await parseChunks(['{"n": 3', '.', '1', '4}']);
+            const results = await parseChunks<{ n: number }>(['{"n": 3', '.', '1', '4}']);
 
             expect(results[results.length - 1].n).toBe(3.14);
         });
@@ -48,7 +48,7 @@ describe('Streaming Parsing', () => {
 
     describe('partial keywords', () => {
         it('yields guessed true before complete', async () => {
-            const results = await parseChunks(['{"b": t', 'r', 'u', 'e}']);
+            const results = await parseChunks<{ b: boolean }>(['{"b": t', 'r', 'u', 'e}']);
 
             // Parser should guess "true" once it sees "t"
             expect(results[0].b).toBe(true);
@@ -56,14 +56,14 @@ describe('Streaming Parsing', () => {
         });
 
         it('yields guessed false before complete', async () => {
-            const results = await parseChunks(['{"b": f', 'alse}']);
+            const results = await parseChunks<{ b: boolean }>(['{"b": f', 'alse}']);
 
             expect(results[0].b).toBe(false);
             expect(results[results.length - 1].b).toBe(false);
         });
 
         it('yields guessed null before complete', async () => {
-            const results = await parseChunks(['{"v": n', 'ull}']);
+            const results = await parseChunks<{ v: null }>(['{"v": n', 'ull}']);
 
             expect(results[0].v).toBe(null);
             expect(results[results.length - 1].v).toBe(null);
@@ -72,20 +72,20 @@ describe('Streaming Parsing', () => {
 
     describe('partial object structure', () => {
         it('yields empty object after opening brace', async () => {
-            const results = await parseChunks(['{', '"a": 1}']);
+            const results = await parseChunks<{ a?: number }>([ '{', '"a": 1}']);
 
             expect(results[0]).toEqual({});
             expect(results[1].a).toBe(1);
         });
 
         it('handles property key split across chunks', async () => {
-            const results = await parseChunks(['{"na', 'me": "test"}']);
+            const results = await parseChunks<{ name: string }>(['{"na', 'me": "test"}']);
 
             expect(results[results.length - 1].name).toBe('test');
         });
 
         it('handles multiple properties arriving incrementally', async () => {
-            const results = await parseChunks([
+            const results = await parseChunks<{ a: number; b?: number; c?: number }>([
                 '{"a": 1',
                 ', "b": 2',
                 ', "c": 3}'
@@ -99,14 +99,14 @@ describe('Streaming Parsing', () => {
 
     describe('partial array structure', () => {
         it('yields empty array after opening bracket', async () => {
-            const results = await parseChunks(['[', '1]']);
+            const results = await parseChunks<number[]>(['[', '1]']);
 
             expect(results[0]).toEqual([]);
             expect(results[1]).toEqual([1]);
         });
 
         it('handles elements arriving one by one', async () => {
-            const results = await parseChunks(['[1', ', 2', ', 3]']);
+            const results = await parseChunks<number[]>(['[1', ', 2', ', 3]']);
 
             expect(results[0]).toEqual([1]);
             expect(results[1]).toEqual([1, 2]);
@@ -114,7 +114,7 @@ describe('Streaming Parsing', () => {
         });
 
         it('handles array of objects streaming', async () => {
-            const results = await parseChunks([
+            const results = await parseChunks<{ a?: number; b?: number }[]>([
                 '[{"a": 1}',
                 ', {"b": 2}]'
             ]);
@@ -127,16 +127,16 @@ describe('Streaming Parsing', () => {
     describe('character-by-character streaming', () => {
         it('handles object character by character', async () => {
             const json = '{"a":1}';
-            const results = await parseChunks(json.split(''));
+            const results = await parseChunks<{ a: number }>(json.split(''));
 
             const last = results[results.length - 1];
             expect(last.a).toBe(1);
-            expect(last[META].ambiguous[AMBIGUOUS]).toBe(false);
+            expect(isAmbiguous(last[META].ambiguous)).toBe(false);
         });
 
         it('handles array character by character', async () => {
             const json = '[1,2,3]';
-            const results = await parseChunks(json.split(''));
+            const results = await parseChunks<number[]>(json.split(''));
 
             const last = results[results.length - 1];
             expect(last).toEqual([1, 2, 3]);
@@ -144,7 +144,7 @@ describe('Streaming Parsing', () => {
 
         it('handles nested structure character by character', async () => {
             const json = '{"x":[1,2]}';
-            const results = await parseChunks(json.split(''));
+            const results = await parseChunks<{ x: number[] }>(json.split(''));
 
             const last = results[results.length - 1];
             expect(last.x).toEqual([1, 2]);
@@ -153,7 +153,7 @@ describe('Streaming Parsing', () => {
 
     describe('append-only guarantee', () => {
         it('never removes previously parsed data', async () => {
-            const results = await parseChunks([
+            const results = await parseChunks<{ msg: string }>([
                 '{"msg": "He',
                 'llo',
                 ' World"}'
@@ -166,7 +166,7 @@ describe('Streaming Parsing', () => {
         });
 
         it('never reduces array length', async () => {
-            const results = await parseChunks([
+            const results = await parseChunks<number[]>([
                 '[1',
                 ', 2',
                 ', 3]'
@@ -178,7 +178,7 @@ describe('Streaming Parsing', () => {
         });
 
         it('never removes object properties', async () => {
-            const results = await parseChunks([
+            const results = await parseChunks<{ a: number; b?: number; c?: number }>([
                 '{"a": 1',
                 ', "b": 2',
                 ', "c": 3}'
@@ -197,7 +197,7 @@ describe('Streaming Parsing', () => {
         it('handles single large chunk', async () => {
             const largeObj = { items: Array(100).fill(0).map((_, i) => ({ id: i, name: `item${i}` })) };
             const json = JSON.stringify(largeObj);
-            const results = await parseChunks([json]);
+            const results = await parseChunks<{ items: { id: number; name: string }[] }>([json]);
 
             expect(results[0].items.length).toBe(100);
             expect(results[0].items[99].id).toBe(99);
@@ -205,7 +205,7 @@ describe('Streaming Parsing', () => {
 
         it('handles varying chunk sizes', async () => {
             const json = '{"a": 1, "b": 2, "c": 3, "d": 4}';
-            const results = await parseChunks([
+            const results = await parseChunks<{ a: number; b: number; c: number; d: number }>([
                 json.slice(0, 5),   // {"a":
                 json.slice(5, 15),  //  1, "b": 2
                 json.slice(15)      // , "c": 3, "d": 4}
@@ -218,7 +218,7 @@ describe('Streaming Parsing', () => {
 
     describe('empty chunks', () => {
         it('handles empty string chunks gracefully', async () => {
-            const results = await parseChunks(['{"a":', '', ' 1', '', '}']);
+            const results = await parseChunks<{ a: number }>(['{"a":', '', ' 1', '', '}']);
 
             const last = results[results.length - 1];
             expect(last.a).toBe(1);
@@ -227,7 +227,7 @@ describe('Streaming Parsing', () => {
 
     describe('snapshot isolation', () => {
         it('snapshots are independent objects', async () => {
-            const results = await parseChunks(['{"a": 1', ', "b": 2}']);
+            const results = await parseChunks<{ a: number; b?: number }>(['{"a": 1', ', "b": 2}']);
 
             // Modifying one snapshot shouldn't affect others
             results[0].a = 999;
