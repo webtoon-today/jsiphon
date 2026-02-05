@@ -60,7 +60,7 @@ describe('Ambiguity Tree', () => {
             expect(results[0].outer.inner).toBe('val');
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous.outer)).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous.outer as any).inner)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous.outer?.inner)).toBe(true);
         });
 
         it('marks parent stable when all children complete', async () => {
@@ -68,7 +68,7 @@ describe('Ambiguity Tree', () => {
 
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(false);
             expect(isAmbiguous(results[0][META].ambiguous.outer)).toBe(false);
-            expect(isAmbiguous((results[0][META].ambiguous.outer as any).inner)).toBe(false);
+            expect(isAmbiguous(results[0][META].ambiguous.outer?.inner)).toBe(false);
         });
 
         it('marks stable branch while another streams', async () => {
@@ -76,9 +76,9 @@ describe('Ambiguity Tree', () => {
 
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous.a)).toBe(false);
-            expect(isAmbiguous((results[0][META].ambiguous.a as any).x)).toBe(false);
+            expect(isAmbiguous(results[0][META].ambiguous.a?.x)).toBe(false);
             expect(isAmbiguous(results[0][META].ambiguous.b)).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous.b as any).y)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous.b?.y)).toBe(true);
         });
     });
 
@@ -104,7 +104,7 @@ describe('Ambiguity Tree', () => {
             expect(results[0][0].n).toBe(123);
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous[0])).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous[0] as any).n)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous[0]?.n)).toBe(true);
         });
     });
 
@@ -248,7 +248,7 @@ describe('Ambiguity Tree', () => {
 
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(false);
             expect(isAmbiguous(results[0][META].ambiguous.outer)).toBe(false);
-            expect(isAmbiguous((results[0][META].ambiguous.outer as any).inner)).toBe(false);
+            expect(isAmbiguous(results[0][META].ambiguous.outer?.inner)).toBe(false);
         });
     });
 
@@ -337,8 +337,8 @@ describe('Ambiguity Tree', () => {
 
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous.a)).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous.a as any).b)).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous.a as any).b.c)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous.a?.b)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous.a?.b?.c)).toBe(true);
         });
 
         it('keeps parent ambiguous when child value completes but parent not closed', async () => {
@@ -353,7 +353,7 @@ describe('Ambiguity Tree', () => {
             expect(results[0].outer.first).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous.outer)).toBe(true);  // Must stay true!
-            expect(isAmbiguous((results[0][META].ambiguous.outer as any).first)).toBe(false);
+            expect(isAmbiguous(results[0][META].ambiguous.outer?.first)).toBe(false);
 
             // Chunk 2: everything complete
             expect(results[1].outer.first).toBe(true);
@@ -372,12 +372,12 @@ describe('Ambiguity Tree', () => {
             // Chunk 1: c is streaming
             expect(isAmbiguous(results[0][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[0][META].ambiguous.b)).toBe(true);
-            expect(isAmbiguous((results[0][META].ambiguous.b as any).c)).toBe(true);
+            expect(isAmbiguous(results[0][META].ambiguous.b?.c)).toBe(true);
 
             // Chunk 2: b.c complete, d is streaming
             expect(isAmbiguous(results[1][META].ambiguous)).toBe(true);
             expect(isAmbiguous(results[1][META].ambiguous.b)).toBe(false);
-            expect(isAmbiguous((results[1][META].ambiguous.b as any).c)).toBe(false);
+            expect(isAmbiguous(results[1][META].ambiguous.b?.c)).toBe(false);
             expect(isAmbiguous(results[1][META].ambiguous.d)).toBe(true);
 
             // Chunk 3: all complete

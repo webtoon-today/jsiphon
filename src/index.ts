@@ -4,6 +4,7 @@ export {
     AMBIGUOUS,
     isAmbiguous,
     type AmbiguityNode,
+    type AmbiguityTree,
     type MetaInfo,
     type DeepPartial,
     type ParseResult,

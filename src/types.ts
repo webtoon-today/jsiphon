@@ -10,23 +10,30 @@ export const META = Symbol('meta');
 export const AMBIGUOUS = Symbol('ambiguous');
 
 /**
+ * Ambiguity tree node - base type with [AMBIGUOUS] property.
+ */
+export type AmbiguityNode = { [AMBIGUOUS]: boolean };
+
+/**
+ * Ambiguity tree that mirrors the structure of T.
+ * Each node has [AMBIGUOUS]: boolean, and nested properties match T's shape.
+ */
+export type AmbiguityTree<T> = AmbiguityNode & (
+    T extends (infer U)[]
+        ? { [index: number]: AmbiguityTree<U> }
+        : T extends object
+            ? { [K in keyof T]?: AmbiguityTree<T[K]> }
+            : {}
+);
+
+/**
  * Check if a node in the ambiguity tree is still streaming/unstable.
  * Returns true if the value or any descendant is still being parsed.
  * Returns true if node is undefined (field not yet seen = still ambiguous).
  */
-export function isAmbiguous(node: AmbiguityNode | boolean | undefined): boolean {
+export function isAmbiguous(node: AmbiguityNode | undefined): boolean {
     if (node === undefined) return true;  // not yet seen = ambiguous
-    if (typeof node === 'boolean') return node;
     return node[AMBIGUOUS];
-}
-
-/**
- * Ambiguity tree node - tracks stability at each level.
- * [AMBIGUOUS]: true means this value or any descendant is unstable.
- */
-export interface AmbiguityNode {
-    [AMBIGUOUS]: boolean;
-    [key: string]: AmbiguityNode | boolean;
 }
 
 /**
@@ -34,7 +41,7 @@ export interface AmbiguityNode {
  */
 export interface MetaInfo<T = unknown> {
     /** Tree tracking stability at each level of the parsed structure */
-    ambiguous: AmbiguityNode;
+    ambiguous: AmbiguityTree<T>;
 
     /** The accumulated raw input text */
     text: string;

@@ -32,11 +32,11 @@ async function main() {
         const amb = snapshot[META].ambiguous;
 
         console.log('[Snapshot]');
-        console.log(`  user.name: "${snapshot.user?.name ?? ''}" ${isAmbiguous((amb.user as any)?.name) ? '...' : 'DONE'}`);
-        console.log(`  user.profile.age: ${snapshot.user?.profile?.age ?? 'undefined'} ${isAmbiguous((amb.user as any)?.profile?.age) ? '...' : 'DONE'}`);
-        console.log(`  user.profile.city: "${snapshot.user?.profile?.city ?? ''}" ${isAmbiguous((amb.user as any)?.profile?.city) ? '...' : 'DONE'}`);
-        console.log(`  user.profile.interests: [${snapshot.user?.profile?.interests?.map(i => `"${i}"`).join(', ') ?? ''}] ${isAmbiguous((amb.user as any)?.profile?.interests) ? '...' : 'DONE'}`);
-        console.log(`  timestamp: "${snapshot.timestamp ?? ''}" ${isAmbiguous(amb.timestamp) ? '...' : 'DONE'}`);
+        console.log(`  user.name             : "${snapshot.user?.name          ??          ''}" ${isAmbiguous(amb.user?.name         ) ? '...' : 'DONE'}`);
+        console.log(`  user.profile.age      :  ${snapshot.user?.profile?.age  ?? 'undefined'}  ${isAmbiguous(amb.user?.profile?.age ) ? '...' : 'DONE'}`);
+        console.log(`  user.profile.city     : "${snapshot.user?.profile?.city ??          ''}" ${isAmbiguous(amb.user?.profile?.city) ? '...' : 'DONE'}`);
+        console.log(`  user.profile.interests: [${snapshot.user?.profile?.interests?.map(i => `"${i}"`).join(', ') ?? ''}] ${isAmbiguous(amb.user?.profile?.interests) ? '...' : 'DONE'}`);
+        console.log(`  timestamp             : "${snapshot.timestamp ?? ''}" ${isAmbiguous(amb.timestamp) ? '...' : 'DONE'}`);
         console.log();
     }
 
