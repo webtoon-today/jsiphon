@@ -1,6 +1,6 @@
 {
   "name": "jsiphon",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "An append-only streaming JSON parser. Parse incomplete JSON as it streams in - data is never removed or mutated, only extended.",
   "type": "module",
   "main": "./dist/index.js",
@@ -45,6 +45,7 @@
   },
   "homepage": "https://github.com/webtoon-today/jsiphon#readme",
   "devDependencies": {
+    "@types/node": "^25.2.0",
     "esbuild": "^0.27.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

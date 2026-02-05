@@ -6,6 +6,56 @@
 
 An append-only streaming JSON parser for TypeScript. Parse incomplete JSON as it streams in - previously parsed data is never removed or mutated, only extended. Perfect for real-time parsing of LLM outputs, chunked HTTP responses, or any scenario where JSON arrives incrementally.
 
+---
+
+## TL;DR
+
+**Streaming JSON parser for LLM outputs.** Get usable objects from incomplete JSON like `{"msg": "Hel` before the stream finishes.
+
+### Why jsiphon?
+
+| Use Case | Problem | jsiphon Solution |
+|----------|---------|------------------|
+| **Early partial return** | Can't use data until stream completes | Get values immediately + know which fields are "done" via ambiguity tracking |
+| **Incremental text** | Re-rendering entire content on each chunk is expensive | Delta contains only new characters — just append to DOM |
+| **Structured streaming** | LLM JSON mode forces you to wait for complete response | Get strict JSON format AND real-time streaming together |
+
+### Quick Example
+
+```typescript
+import { Jsiphon, META, isAmbiguous } from 'jsiphon';
+
+const parser = new Jsiphon<{ title: string; content: string }>({
+    stream: llmStream  // AsyncIterable<string>
+});
+
+for await (const snapshot of parser) {
+    // 1. Early partial return — use data before stream finishes
+    console.log(snapshot.title);   // "Hello" (even from incomplete JSON)
+
+    // 2. Incremental text — delta has only NEW characters
+    if (snapshot[META].delta?.content) {
+        chatBubble.textContent += snapshot[META].delta.content;  // No re-render needed
+    }
+
+    // 3. Ambiguity — know when a field is finalized
+    if (!isAmbiguous(snapshot[META].ambiguous.title)) {
+        document.title = snapshot.title;  // Safe to use — title is complete
+    }
+}
+```
+
+### How it works
+
+```
+Stream:  {"msg": "Hel  →  {"msg": "Hello  →  {"msg": "Hello"}
+Value:   {msg: "Hel"}     {msg: "Hello"}     {msg: "Hello"}
+Delta:   {msg: "Hel"}     {msg: "lo"}        {msg: ""}
+                          ↑ only new chars
+```
+
+---
+
 ## Features
 
 - **Append-Only Model** - Data is only added, never removed or mutated as the stream progresses
@@ -50,7 +100,7 @@ npm install jsiphon
 ## Quick Start
 
 ```typescript
-import { Jsiphon, META, AMBIGUOUS } from 'jsiphon';
+import { Jsiphon, META, isAmbiguous } from 'jsiphon';
 
 // Create a parser with an async iterable stream
 const parser = new Jsiphon<{ name: string; age: number }>({
@@ -59,10 +109,10 @@ const parser = new Jsiphon<{ name: string; age: number }>({
 
 // Iterate over parsed snapshots as they arrive
 for await (const snapshot of parser) {
-    console.log(snapshot.name);                            // Partial or complete value
-    console.log(snapshot[META].ambiguous[AMBIGUOUS]);      // true if any value is unstable
-    console.log(snapshot[META].ambiguous.name[AMBIGUOUS]); // true if name is unstable
-    console.log(snapshot[META].delta);                     // What changed since last snapshot
+    console.log(snapshot.name);                         // Partial or complete value
+    console.log(isAmbiguous(snapshot[META].ambiguous)); // true if any value is unstable
+    console.log(isAmbiguous(snapshot[META].ambiguous.name)); // true if name is unstable
+    console.log(snapshot[META].delta);                  // What changed since last snapshot
 }
 ```
 
@@ -120,16 +170,16 @@ interface MetaInfo {
 type AmbiguityTree = { [AMBIGUOUS]: boolean; [key: string]: AmbiguityTree };
 ```
 
-### `META` and `AMBIGUOUS`
+### `META` and `isAmbiguous`
 
-Unique symbols used to access metadata and ambiguity state.
+`META` is a unique symbol to access metadata. `isAmbiguous()` checks if a node is still streaming.
 
 ```typescript
-import { META, AMBIGUOUS } from 'jsiphon';
+import { META, isAmbiguous } from 'jsiphon';
 
 for await (const snapshot of parser) {
-    console.log(snapshot[META].ambiguous[AMBIGUOUS]);       // Root stability
-    console.log(snapshot[META].ambiguous.name[AMBIGUOUS]);  // Field stability
+    console.log(isAmbiguous(snapshot[META].ambiguous));      // Root stability
+    console.log(isAmbiguous(snapshot[META].ambiguous.name)); // Field stability
     console.log(snapshot[META].delta);
 }
 ```
@@ -147,7 +197,7 @@ type ParseResult<T> = T & { [META]: MetaInfo };
 ### Parsing Streaming LLM Output
 
 ```typescript
-import { Jsiphon, META, AMBIGUOUS } from 'jsiphon';
+import { Jsiphon, META, isAmbiguous } from 'jsiphon';
 
 interface LLMResponse {
     answer: string;
@@ -175,7 +225,7 @@ async function handleLLMStream() {
         // Update UI with partial data
         updateAnswerDisplay(snapshot.answer);
 
-        if (!snapshot[META].ambiguous.sources?.[AMBIGUOUS]) {
+        if (!isAmbiguous(snapshot[META].ambiguous.sources)) {
             // sources is stable
             showSources(snapshot.sources);
         }
@@ -225,8 +275,8 @@ const parser = new Jsiphon<UserData>({
 for await (const snapshot of parser) {
     console.log(snapshot.user?.name);
     console.log(snapshot.user?.profile?.age);
-    console.log(snapshot[META].ambiguous[AMBIGUOUS]);                    // true while any part is streaming
-    console.log(snapshot[META].ambiguous.user?.profile?.age[AMBIGUOUS]); // true while age is streaming
+    console.log(isAmbiguous(snapshot[META].ambiguous));                    // true while any part is streaming
+    console.log(isAmbiguous((snapshot[META].ambiguous.user as any)?.profile?.age)); // true while age is streaming
 }
 ```
 
@@ -331,7 +381,7 @@ snapshot[META].ambiguous = {
 
 Check stability at any level:
 ```typescript
-if (!snapshot[META].ambiguous.b[AMBIGUOUS]) {
+if (!isAmbiguous(snapshot[META].ambiguous.b)) {
     // b and all its descendants are stable
     saveToDatabase(snapshot.b);
 }

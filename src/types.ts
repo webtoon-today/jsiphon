@@ -10,6 +10,17 @@ export const META = Symbol('meta');
 export const AMBIGUOUS = Symbol('ambiguous');
 
 /**
+ * Check if a node in the ambiguity tree is still streaming/unstable.
+ * Returns true if the value or any descendant is still being parsed.
+ * Returns true if node is undefined (field not yet seen = still ambiguous).
+ */
+export function isAmbiguous(node: AmbiguityNode | boolean | undefined): boolean {
+    if (node === undefined) return true;  // not yet seen = ambiguous
+    if (typeof node === 'boolean') return node;
+    return node[AMBIGUOUS];
+}
+
+/**
  * Ambiguity tree node - tracks stability at each level.
  * [AMBIGUOUS]: true means this value or any descendant is unstable.
  */
