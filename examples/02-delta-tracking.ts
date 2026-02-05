@@ -9,25 +9,6 @@
 
 import { Jsiphon, META } from '../src/index.js';
 
-async function* mockLLMStream(): AsyncIterable<string> {
-    const chunks = [
-        '{"content": "The ',
-        'quick ',
-        'brown ',
-        'fox ',
-        'jumps ',
-        'over ',
-        'the ',
-        'lazy ',
-        'dog."}'
-    ];
-
-    for (const chunk of chunks) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        yield chunk;
-    }
-}
-
 interface ChatMessage {
     content: string;
 }
@@ -57,6 +38,27 @@ async function main() {
 
     console.log('\n\n--- Done ---');
     console.log(`Final content: "${chatBubble}"`);
+}
+
+// --- Mock Stream ---
+
+async function* mockLLMStream(): AsyncIterable<string> {
+    const chunks = [
+        '{"content": "The ',
+        'quick ',
+        'brown ',
+        'fox ',
+        'jumps ',
+        'over ',
+        'the ',
+        'lazy ',
+        'dog."}'
+    ];
+
+    for (const chunk of chunks) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        yield chunk;
+    }
 }
 
 main();

@@ -7,23 +7,6 @@
 
 import { Jsiphon, META } from '../src/index.js';
 
-// Mock a streaming response (simulates LLM output arriving in chunks)
-async function* mockStream(): AsyncIterable<string> {
-    const chunks = [
-        '{"message": "Hel',
-        'lo, ',
-        'World!',
-        '", "status": "com',
-        'plete"}'
-    ];
-
-    for (const chunk of chunks) {
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
-        console.log(`[Stream] Received chunk: ${JSON.stringify(chunk)}`);
-        yield chunk;
-    }
-}
-
 interface Response {
     message: string;
     status: string;
@@ -45,6 +28,24 @@ async function main() {
     }
 
     console.log('\n--- Done ---');
+}
+
+// --- Mock Stream (simulates LLM output arriving in chunks) ---
+
+async function* mockStream(): AsyncIterable<string> {
+    const chunks = [
+        '{"message": "Hel',
+        'lo, ',
+        'World!',
+        '", "status": "com',
+        'plete"}'
+    ];
+
+    for (const chunk of chunks) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log(`[Stream] Received chunk: ${JSON.stringify(chunk)}`);
+        yield chunk;
+    }
 }
 
 main();

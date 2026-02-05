@@ -9,23 +9,6 @@
 
 import { Jsiphon, META, isAmbiguous } from '../src/index.js';
 
-async function* mockStream(): AsyncIterable<string> {
-    const chunks = [
-        '{"user": {"name": "Al',
-        'ice", "profile": {"age":',
-        ' 28, "city": "San Fran',
-        'cisco", "interests": ["co',
-        'ding", "music',
-        '", "hiking"]}},',
-        ' "timestamp": "2024-01-15"}'
-    ];
-
-    for (const chunk of chunks) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        yield chunk;
-    }
-}
-
 interface UserData {
     user: {
         name: string;
@@ -58,6 +41,25 @@ async function main() {
     }
 
     console.log('--- Done ---');
+}
+
+// --- Mock Stream ---
+
+async function* mockStream(): AsyncIterable<string> {
+    const chunks = [
+        '{"user": {"name": "Al',
+        'ice", "profile": {"age":',
+        ' 28, "city": "San Fran',
+        'cisco", "interests": ["co',
+        'ding", "music',
+        '", "hiking"]}},',
+        ' "timestamp": "2024-01-15"}'
+    ];
+
+    for (const chunk of chunks) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        yield chunk;
+    }
 }
 
 main();

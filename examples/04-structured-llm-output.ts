@@ -9,24 +9,6 @@
 
 import { Jsiphon, META, isAmbiguous } from '../src/index.js';
 
-// Simulates an LLM responding with structured JSON (like OpenAI's JSON mode)
-async function* mockStructuredLLMResponse(): AsyncIterable<string> {
-    const chunks = [
-        '{"answer": "The capital of France is ',
-        'Paris. It is located in the ',
-        'north-central part of the country.',
-        '", "confidence": 0.9',
-        '5, "sources": ["wiki',
-        'pedia.org", "britannica',
-        '.com"]}'
-    ];
-
-    for (const chunk of chunks) {
-        await new Promise(resolve => setTimeout(resolve, 250));
-        yield chunk;
-    }
-}
-
 interface LLMResponse {
     answer: string;
     confidence: number;
@@ -68,6 +50,25 @@ async function main() {
     }
 
     console.log('\n--- Done ---');
+}
+
+// --- Mock Stream (simulates an LLM responding with structured JSON) ---
+
+async function* mockStructuredLLMResponse(): AsyncIterable<string> {
+    const chunks = [
+        '{"answer": "The capital of France is ',
+        'Paris. It is located in the ',
+        'north-central part of the country.',
+        '", "confidence": 0.9',
+        '5, "sources": ["wiki',
+        'pedia.org", "britannica',
+        '.com"]}'
+    ];
+
+    for (const chunk of chunks) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+        yield chunk;
+    }
 }
 
 main();
